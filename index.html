@@ -1,0 +1,867 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Level Up — Talha's Interactive CV</title>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700;900&display=swap" rel="stylesheet">
+<style>
+  :root{--bg:#071024;--panel:#0b1220;--accent:#F59E0B;--muted:#9fb7dc;color-scheme:dark}
+  html,body{height:100%;margin:0;font-family: 'Montserrat', sans-serif;background-image:url("background.jpg");background-position: bottom;color:#eaf4ff}
+  .wrap {
+  max-width: 1280px; 
+  margin: 28px auto;
+  padding: 22px;
+  border-radius: 12px;
+  background: linear-gradient(180deg,rgba(255,255,255,0.02),transparent);
+  box-shadow: 0 12px 40px rgba(2,6,23,0.7);
+}
+  header{display:flex;align-items:center;justify-content:space-between;gap:18px}
+  h1{margin:0;font-size:22px}
+  .meta{color:var(--muted);font-size:13px}
+  .game-area{margin-top:18px;display:grid;grid-template-columns:1fr 340px;gap:18px}
+  .stage {
+  background: rgba(255,255,255,0.02);
+  border-radius: 10px;
+  padding: 12px;
+  position: relative;
+  overflow: hidden;
+  /* min-height sildik ki canvas ile uyumlu olsun */
+}
+  canvas {
+  background: linear-gradient(180deg,#031226,rgba(4,10,20,0.4));
+  display: block;
+  border-radius: 8px;
+  width: 100%;
+  height: auto; /* EN ÖNEMLİ KISIM: Sabit piksel yerine otomatik olsun */
+  aspect-ratio: 2 / 1; /* En-boy oranını koru (Geniş ekran) */
+}
+  .sidebar{background:var(--panel);border-radius:10px;padding:12px}
+  .hud{display:flex;gap:10px;align-items:center;margin-bottom:12px}
+  .bar{background:#07182a;padding:8px;border-radius:8px;flex:1}
+  .stat{font-size:13px}
+  .levels{margin-top:12px}
+  .level{padding:8px;border-radius:8px;margin-bottom:8px;background:linear-gradient(90deg,rgba(255,255,255,0.01),transparent);display:flex;justify-content:space-between;align-items:center}
+  button{background:var(--accent);border:none;padding:8px 10px;border-radius:8px;color:#041022;font-weight:700;cursor:pointer}
+  .log{margin-top:12px;font-size:13px;color:var(--muted);height:220px;overflow:auto;padding:8px;background:rgba(255,255,255,0.01);border-radius:8px}
+  .footer{margin-top:14px;color:var(--muted);font-size:13px}
+  /* modal */
+  .modal{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:linear-gradient(180deg, rgba(2,6,16,0.6), rgba(2,6,16,0.8));z-index:40}
+  .card{background:linear-gradient(180deg,#061426,#08182a);padding:18px;border-radius:12px;width:90%;max-width:720px;box-shadow:0 12px 40px rgba(2,6,23,0.8);border:1px solid rgba(255,255,255,0.03)}
+  .card h2{margin:0 0 8px}
+  .project-list{display:grid;gap:8px}
+  .project{padding:10px;border-radius:8px;background:rgba(255,255,255,0.01);display:flex;justify-content:space-between;align-items:center}
+  .controls{display:flex;gap:8px;align-items:center;margin-top:12px}
+  .big{font-size:18px;font-weight:700}
+  .pill{background:rgba(255,255,255,0.02);padding:6px 8px;border-radius:999px;font-size:13px}
+  .kbd{display:inline-block;padding:6px 8px;border-radius:6px;background:#021427;border:1px solid rgba(255,255,255,0.03);font-family:monospace}
+  /* ... Önceki CSS kodları aynen kalsın, sadece .level kısmını güncelle ... */
+
+.level {
+  padding: 10px;
+  border-radius: 8px;
+  margin-bottom: 8px;
+  border: 1px solid transparent; /* Kenarlık ekledik */
+  background: linear-gradient(90deg, rgba(255,255,255,0.01), transparent);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  transition: all 0.3s ease;
+}
+
+/* Unlock olan levellar parlasın */
+.level.unlocked {
+  background: linear-gradient(90deg, rgba(16, 185, 129, 0.1), transparent);
+  border-color: rgba(16, 185, 129, 0.3);
+  box-shadow: 0 0 10px rgba(16, 185, 129, 0.1);
+}
+
+.pill.green { background: #059669; color: white; }
+.pill.gray { background: #334155; color: #94a3b8; }
+  /* responsive */
+  @media (max-width:880px){.game-area{grid-template-columns:1fr} .sidebar{order:2}}
+
+  /* Unlocked olanlara tıklanabileceğini gösteren efektler */
+.level.unlocked {
+  cursor: pointer; /* Üzerine gelince el işareti çıksın */
+  background: linear-gradient(90deg, rgba(16, 185, 129, 0.1), transparent);
+  border-color: rgba(16, 185, 129, 0.3);
+  box-shadow: 0 0 10px rgba(16, 185, 129, 0.1);
+}
+
+.level.unlocked:hover {
+  background: linear-gradient(90deg, rgba(16, 185, 129, 0.25), transparent); /* Tıklanma hissi için parlaklık */
+  transform: translateX(5px); /* Hafif sağa kayma efekti */
+}
+
+/* --- LEVEL UP ŞOV EFEKTLERİ --- */
+
+/* Kartın havalı girişi */
+@keyframes popIn {
+  0% { transform: scale(0.5); opacity: 0; }
+  70% { transform: scale(1.1); opacity: 1; }
+  100% { transform: scale(1); }
+}
+
+/* Altın rengi yanıp sönen kenarlık */
+@keyframes glowPulse {
+  0% { box-shadow: 0 0 15px rgba(245, 158, 11, 0.3); border-color: #f59e0b; }
+  50% { box-shadow: 0 0 40px rgba(245, 158, 11, 0.8); border-color: #fbbf24; }
+  100% { box-shadow: 0 0 15px rgba(245, 158, 11, 0.3); border-color: #f59e0b; }
+}
+
+/* Yazının içinden ışık geçmesi */
+@keyframes textShine {
+  0% { background-position: 0% 50%; }
+  100% { background-position: 100% 50%; }
+}
+
+.modal-content-epic {
+  animation: popIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275); /* Elastik büyüme */
+  border: 2px solid #f59e0b;
+  animation: glowPulse 2s infinite; /* Sürekli parlasın */
+  background: linear-gradient(180deg, #1e293b, #0f172a) !important;
+}
+
+.epic-title {
+  font-size: 32px !important;
+  font-weight: 900 !important;
+  text-transform: uppercase;
+  
+  /* Arka plan rengi (Gradient) */
+  background: linear-gradient(to right, #f59e0b, #fff, #f59e0b);
+  background-size: 200% auto;
+  
+  /* DÜZELTME BURADA: İkisini de yazıyoruz */
+  background-clip: text;          /* Standart özellik (Hata bunun için çıkıyordu) */
+  -webkit-background-clip: text;  /* Chrome ve Safari için gerekli */
+  
+  /* Yazının içini boşaltıp arka planı gösteriyoruz */
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+  
+  animation: textShine 3s linear infinite;
+  margin-bottom: 15px !important;
+}
+
+/* --- BOSS "META TWIST" ÖZEL TASARIMI --- */
+
+/* Kartın kendisi: Simsiyah ve keskin beyaz kenarlıklı */
+.modal-content-boss {
+  background: #020617 !important; /* Çok koyu lacivert/siyah */
+  border: 3px solid #ffffff !important; /* Keskin beyaz çerçeve */
+  box-shadow: 0 0 40px rgba(255, 255, 255, 0.2) !important; /* Soğuk beyaz parlama */
+  animation: popIn 0.6s cubic-bezier(0.22, 1, 0.36, 1); /* Biraz daha ağırbaşlı bir giriş */
+  font-family: 'Courier New', Courier, monospace; /* Monospaced font ile "sistem mesajı" havası */
+}
+
+/* Başlık: Beyaz ve daktilo/terminal tarzı */
+.boss-title-style {
+  font-size: 28px !important;
+  font-weight: 700 !important;
+  color: #ffffff !important;
+  text-transform: uppercase;
+  letter-spacing: 3px;
+  margin-bottom: 20px !important;
+  border-bottom: 2px solid #ef4444; /* Kırmızı bir alt çizgi */
+  display: inline-block;
+}
+
+/* Vurgulu metinler için kırmızı renk */
+.boss-highlight {
+  color: #ef4444; /* Keskin kırmızı */
+  font-weight: bold;
+  font-size: 1.1em;
+}
+
+/* Boss butonu: Kırmızı ve dikkat çekici */
+.boss-button {
+  background-color: #ef4444 !important;
+  color: white !important;
+  font-family: 'Courier New', Courier, monospace;
+  font-weight: bold;
+  letter-spacing: 1px;
+  box-shadow: 0 4px 15px rgba(239, 68, 68, 0.4);
+  transition: all 0.3s ease;
+}
+.boss-button:hover {
+    background-color: #dc2626 !important;
+    transform: scale(1.05);
+}
+
+/* İkinci (Negatif) Buton Stili */
+.boss-button-secondary {
+  background-color: transparent !important;
+  color: #94a3b8 !important; /* Soluk gri */
+  border: 2px solid #334155 !important;
+  font-family: 'Montserrat', sans-serif;
+  font-weight: 700;
+  letter-spacing: 1px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.boss-button-secondary:hover {
+  border-color: #ef4444; /* Üzerine gelince kırmızılaşsın */
+  color: #ef4444 !important;
+}
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+    <div id="startModal" class="modal" style="display:flex;">
+    <div class="card" style="text-align:center;">
+      <h1 style="color:var(--accent); margin-bottom:10px;">LEVEL 1: CURIOSITY</h1>
+      <div style="margin-bottom:20px; line-height:1.6; color:#eaf4ff;">
+        <p><strong>Hey There, it is Talha calling.</strong></p>
+        <p>Every Huge Project is initiated by a small question <em>"how it works?"</em></p>
+        <p>The key that make me here from the physics class to the Projects lights upon the society, from developing to designing, is always <strong> Curiosity </strong>.</p>
+        <p>In this interactive Introduction, You will be a player to discover my world! Gain XP, overcome the obstacles and unlock pathways of my career. <strong> Before start your journey, check the first level's earnings. Consider that it is as privilege for you :3 </strong></p>
+        <p style="color:var(--muted); font-size:13px; margin-top:15px;">Thank you for your time. Have Fun and Good Luck!</p>
+      </div>
+      <button id="startGameBtn" style="font-size:16px; padding:12px 30px;">BEGIN!</button>
+    </div>
+  </div>
+      <div>
+        <h1>WHERE AM I — WELCOME TO THE WORLD OF MINE</h1>
+        <div class="meta">Play to explore skills & projects. Controls: <span class="kbd">←</span> <span class="kbd">→</span> to move, <span class="kbd">Space</span> to jump, <span class="kbd">Z</span> to dash.</div>
+      </div>
+      <div>
+        <div class="pill">Player: YOU!</div>
+      </div>
+    </header>
+
+    <div class="game-area">
+      <div class="stage">
+       <canvas id="game" width="960" height="480"></canvas>
+      </div>
+
+      <aside class="sidebar">
+        <div class="hud">
+          <div class="bar"><div class="stat">Level: <span id="level">1</span> • XP: <span id="xp">0</span>/<span id="xpNeeded">10</span></div></div>
+          <div style="display:flex; gap:5px;">
+            <button id="toggleMusic">🎵</button>
+            <button id="reset">Reset</button>
+            </div>
+        </div>
+
+        <div class="levels">
+          <!-- Levels will be injected -->
+        </div>
+
+        <div class="log" id="log">Welcome! Collect XP orbs to level up. Each level unlocks projects. And be careful about the red ones!</div>
+
+        <div class="footer">Beat the Boss (Level 5) to reveal contact.</div>
+      </aside>
+    </div>
+  </div>
+
+  <!-- Level Modal -->
+  <div id="modal" class="modal">
+    <div class="card">
+      <h2 id="modalTitle">Level Unlocked</h2>
+      <p id="modalDesc">You unlocked a skill.</p>
+      <div class="project-list" id="projects"></div>
+      <div class="controls">
+        <button id="closeModal">Close</button>
+        <button id="visitProject">Open Project</button>
+      </div>
+    </div>
+  </div>
+
+<script>
+// --- Game CV data (SENİN VERİLERİN) ---
+const LEVELS = [
+  {id:1, name:'Curiosity', desc:'Always reading what is going on around the world and trends regarding rap music', projects:[{title:'Instagram', url:'https://instagram.com/taalhatekin'},{title:'Tiktok', url:'https://www.tiktok.com/@melethrillue'}]}, 
+  {id:2, name:'Design', desc:'For me, design is much more than aesthetics; it is a way to communicate ideas, emotions, and values. It allows me to transform abstract thoughts into tangible forms, bridging the gap between imagination and reality. Through design, I can solve problems creatively, craft meaningful experiences, and connect with people on a deeper level. It is both a tool and a language—a medium through which I express my vision, explore possibilities, and leave a personal mark on the world around me. Earnings: Graphic design, rapid mockups.', 
+    projects:[{title:'PORTFOLIO', url:'http://talhatekin.com'}]},
+  {id:3, name:'Events', desc:'For me, events are more than gatherings; they are opportunities to create connections, share experiences, and inspire change. They allow me to bring ideas to life, connect people, and make a meaningful impact in a dynamic way.', 
+    projects:[{title:'LinkedIN', url:'https://www.linkedin.com/in/talhatekin/'},{title:'EYP Türkiye', url:'https://instagram.com/eypturkiye'}]},
+  {id:4, name:'EYP', desc:'I do not know how but EYP is my addiction', projects:[{title:'Members Platform', url:'https://members.eyp.org/user/talha-tekin'}]},
+  {id:5, name:'Boss', desc:'MISSION ACCOMPLISHED?', projects:[{title:'Contact / Hire', url:'mailto:talha.tekin@eyp.org.tr'}]}
+];
+
+// --- Assets (SENİN DOSYA YOLLARIN) ---
+const playerSprite = new Image();
+playerSprite.src = "pixelart_talha.png"; 
+
+const doorClosedSprite = new Image();
+doorClosedSprite.src = "kapali_kapi.png"; 
+
+const doorOpenSprite = new Image();
+doorOpenSprite.src = "acik_kapi.png";
+
+// MÜZİK DOSYASI (Dosya adının muzik.mp3 olduğundan emin ol)
+const bgMusic = new Audio("background-music.mp3");
+bgMusic.loop = true;   // Şarkı bitince başa sarsın
+bgMusic.volume = 0.3;  // Ses seviyesi %30 (Çok bağırmasın)
+
+// --- State ---
+let state = {
+  level: 1,
+  xp: 0,
+  xpNeeded: 10,
+  unlocked: [1],
+  bossDefeated: false,
+  playerX: 80,
+  difficulty: 1
+};
+
+// Seviye XP ayarı
+for(let i=1; i<state.level; i++) { state.xpNeeded = Math.floor(state.xpNeeded * 1.6) + 5; }
+
+// DOM Referansları
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
+const logEl = document.getElementById('log');
+const levelEl = document.getElementById('level');
+const xpEl = document.getElementById('xp');
+const xpNeededEl = document.getElementById('xpNeeded');
+const levelsList = document.querySelector('.levels');
+const modal = document.getElementById('modal');
+const modalTitle = document.getElementById('modalTitle');
+const modalDesc = document.getElementById('modalDesc');
+const projectsEl = document.getElementById('projects');
+const closeModal = document.getElementById('closeModal');
+const visitProject = document.getElementById('visitProject');
+
+// Player Setup
+const P = {x: state.playerX, y:380, w:40, h:55, vy:0, onGround:false, speed:4, dashCooldown:0};
+let keys = {};
+let orbs = [];
+let obstacles = [];
+let badOrbs = [];
+let tick = 0;
+let cameraX = 0;
+let isPaused = false; 
+
+// --- Yardımcı Fonksiyonlar ---
+function log(msg){ const t = document.createElement('div'); t.textContent = msg; logEl.prepend(t); }
+
+function save(){
+  localStorage.setItem('lv', state.level);
+  localStorage.setItem('xp', state.xp);
+  localStorage.setItem('unlocked', JSON.stringify(state.unlocked));
+  localStorage.setItem('boss', JSON.stringify(state.bossDefeated));
+  localStorage.setItem('px', P.x); 
+}
+
+function reset(){
+  if(confirm('Reset progress?')){ localStorage.clear(); location.reload(); }
+}
+
+// UI Çizimi
+function renderLevels(){
+  levelsList.innerHTML='';
+  LEVELS.forEach(l=>{
+    const div = document.createElement('div'); 
+    const isUnlocked = state.unlocked.includes(l.id);
+    div.className = isUnlocked ? 'level unlocked' : 'level';
+    if(isUnlocked) div.onclick = () => { showLevelModal(l); };
+    let statusBadge = isUnlocked ? '<span class="pill green">Unlocked</span>' : '<span class="pill gray">Locked</span>';
+    div.innerHTML = `<div><strong>${l.name}</strong></div><div>${statusBadge}</div>`;
+    levelsList.appendChild(div);
+  });
+  levelEl.textContent = state.level;
+  xpEl.textContent = state.xp;
+  xpNeededEl.textContent = state.xpNeeded;
+}
+
+// Level Atlama
+function tryLevelUp(){
+  while(state.xp >= state.xpNeeded){
+    if(state.level === 4 && !state.bossDefeated) {
+        state.xp = state.xpNeeded; 
+        if(Math.random() < 0.1) log('XP pocket is full! Get to the Boss Arena by walking into the GATE!!!!!!');
+        break; 
+    }
+    state.xp -= state.xpNeeded;
+    state.level += 1;
+    state.xpNeeded = Math.floor(state.xpNeeded * 1.6) + 5;
+    
+    if(!state.unlocked.includes(state.level) && state.level <= LEVELS.length){
+        state.unlocked.push(state.level);
+        const lvlInfo = LEVELS.find(x=>x.id === state.level);
+        if(lvlInfo) { showLevelModal(lvlInfo); log(`Leveled up! Unlocked ${lvlInfo.name}`); }
+    }
+  }
+  renderLevels(); save(); 
+}
+
+// Pop-up Mantığı
+// --- GÜNCELLENMİŞ POP-UP FONKSİYONU (2 BUTONLU) ---
+function showLevelModal(lvl){
+  // Boss leveline erken girilmesini engelle
+  if(lvl.id === 5 && !state.bossDefeated) { log("This level is not completed yet!"); return; }
+
+  isPaused = true;
+  const card = modal.querySelector('.card');
+  
+  // BOSS LEVEL (ID: 5)
+  if (lvl.id === 5) {
+      card.className = 'card modal-content-boss'; 
+      modalTitle.className = 'boss-title-style';
+      modalTitle.innerHTML = "⚠️ SYSTEM MESSAGE:<br>FINAL BOSS DETECTED";
+      modalDesc.innerHTML = `
+        <p>Congratulations. You've analyzed my code, tested my skills, and cleared every stage.</p>
+        <p>But the real Final Boss isn't inside this screen.</p>
+        <p class="boss-highlight" style="margin: 20px 0; text-align:center;">THE FINAL BOSS IS the decision you are going to make!.</p>
+        <p>My interactive Introduction ends here. But the real mission begins with the decision you will make right now.</p>
+      `;
+      
+      projectsEl.innerHTML = '';
+      
+      // Butonları kapsayan kutu (Yan yana dursunlar diye)
+      const btnContainer = document.createElement('div');
+      btnContainer.style.display = 'flex';
+      btnContainer.style.gap = '15px';
+      btnContainer.style.justifyContent = 'center';
+      btnContainer.style.marginTop = '20px';
+
+      // HTML: İki buton ekliyoruz (Unlock vs Quit)
+      btnContainer.innerHTML = `
+        <button id="finalBossBtn" class="boss-button" style="padding:12px 20px; flex:1;">UNLOCK CONTACT</button>
+        <button id="rejectBtn" class="boss-button-secondary" style="padding:12px 20px; flex:1;">JUST NEVERMIND, EXIT THE GAME</button>
+      `;
+      projectsEl.appendChild(btnContainer);
+      
+      // 1. POZİTİF BUTON (İletişim)
+      document.getElementById('finalBossBtn').onclick = function() {
+          window.open(lvl.projects[0].url, '_blank');
+          modal.style.display = 'none'; isPaused = false;
+      };
+
+      // 2. NEGATİF BUTON (Oyunu Bitir/Reddet)
+      document.getElementById('rejectBtn').onclick = function() {
+          if(confirm("Are you sure you want to quit without saving the candidate's contact info? PLEASE DON'T")) {
+             location.reload(); // Sayfayı yenile (Başa sar)
+          }
+      };
+      
+      visitProject.style.display = 'none';
+
+  } else {
+      // NORMAL LEVELLER (Değişiklik yok)
+      fireConfetti(); 
+      card.className = 'card modal-content-epic';
+      modalTitle.className = 'epic-title';
+      modalTitle.innerHTML = `LEVEL UP!<br><span style="font-size:20px; color:#fff;">${lvl.name}</span>`;
+      modalDesc.textContent = lvl.desc;
+      projectsEl.innerHTML = '';
+      lvl.projects.forEach(p=>{
+        const d = document.createElement('div'); d.className='project';
+        d.innerHTML = `<div>${p.title}</div><div><button onclick="window.open('${p.url}','_blank')">View</button></div>`;
+        projectsEl.appendChild(d);
+      });
+      visitProject.style.display = 'inline-block';
+      visitProject.onclick = function() { window.open(lvl.projects[0].url, '_blank'); modal.style.display = 'none'; isPaused = false; };
+  }
+  modal.style.display='flex';
+}
+closeModal.addEventListener('click', ()=>{ modal.style.display='none'; isPaused = false; });
+
+// Game Objects
+function spawnOrb(x,y){ orbs.push({x,y,r:9}); }
+function spawnObstacle(x,y){ obstacles.push({x,y,w:40,h:30}); }
+
+function init(){
+  // Eğer boss aşamasındaysak init yapma (Arena bozulmasın)
+  if(state.level === 5 && !state.bossDefeated) return;
+
+  orbs = []; badOrbs = []; obstacles = [];
+  tick = 0; cameraX = P.x - 160; 
+  
+  for(let i=0; i<50; i++){ spawnOrb(Math.max(300, P.x + 100) + Math.random()*3600, 360 - Math.random()*80); }
+  for(let i=0; i<15; i++){ badOrbs.push({ x: 400 + Math.random() * 3400, y: 280 + Math.random() * 80, r: 11 }); }
+  renderLevels(); draw();
+}
+
+// Controls
+window.addEventListener('keydown',(e)=>{ if(isPaused)return; keys[e.key.toLowerCase()]=true; if(e.key===' ')e.preventDefault(); });
+window.addEventListener('keyup',(e)=>{ keys[e.key.toLowerCase()]=false; });
+
+// --- YENİ BOSS ARENA GİRİŞİ ---
+function enterBossRoom() {
+    // 1. Tüm haritayı temizle
+    orbs = [];
+    badOrbs = [];
+    obstacles = [];
+    
+    // 2. Oyuncuyu arenanın soluna ışınla
+    P.x = 100;
+    cameraX = 0; // Kamera sıfırlanır
+    
+    // 3. Durumu güncelle
+    state.level = 5;
+    renderLevels();
+    
+    // 4. Savaşi başlat
+    startBossFight();
+}
+
+function physics(){
+  if(isPaused) return;
+  if(keys['arrowleft'] || keys['a']) P.x -= P.speed;
+  if(keys['arrowright'] || keys['d']) P.x += P.speed;
+  if((keys[' ']||keys['space']) && P.onGround){ P.vy = -12; P.onGround=false; }
+  if(keys['z'] && P.dashCooldown<=0){ P.x += 80; P.dashCooldown = 40; }
+  if(P.dashCooldown>0) P.dashCooldown--;
+
+  P.vy += 0.6; P.y += P.vy;
+  if(P.y > 380){ P.y = 380; P.vy=0; P.onGround=true; }
+  
+  if(P.x < 40) P.x = 40;
+
+  // --- ARENA VS DÜNYA SINIRLARI ---
+  if(state.level === 5 && !state.bossDefeated) {
+      // Boss Arenası Sınırı (Kafes)
+      if(P.x > 760) P.x = 760; 
+      // Kamera Arenaya kilitlenir
+      let targetCam = P.x - 300;
+      cameraX += (targetCam - cameraX) * 0.1;
+  } else {
+      // Normal Dünya Sınırı
+      if(P.x > 4250) P.x = 4250;
+      // Normal Kamera Takibi
+      let targetCam = P.x - 160;
+      cameraX += (targetCam - cameraX) * 0.1;
+  }
+}
+
+function updateOrbs(){
+  if(isPaused) return;
+  for(let i=orbs.length-1;i>=0;i--){
+    const o = orbs[i];
+    // Topların havada süzülmesi
+    o.y += Math.sin((tick+o.x)/50)*0.3;
+    
+    // Çarpışma kontrolü
+    if(Math.hypot(o.x - P.x, o.y - P.y) < 28 + o.r){
+      orbs.splice(i,1); // Topu yok et
+      
+      // --- DEĞİŞİKLİK BURADA ---
+      state.xp += 5; // Eskiden 3'tü, şimdi 15 oldu (Hızlı Level Up)
+      log('Excellent! +5 XP.');
+      
+      tryLevelUp();
+    }
+  }
+}
+function updateBadOrbs(){
+  if(isPaused) return;
+  for(let i=badOrbs.length-1;i>=0;i--){
+    const o = badOrbs[i];
+    
+    // EĞER BU BİR BOSS TOPUYSA (falling: true)
+    if(o.falling) {
+        o.y += o.speed; // Aşağı doğru hızla insin
+        
+        // Yere (420) değince yok olsun (Performans için)
+        if(o.y > 420) {
+            badOrbs.splice(i,1);
+            continue; // Döngünün sonraki adımına geç
+        }
+    } else {
+        // NORMAL HARİTA TOPLARI (Eski titreme hareketi)
+        o.y += Math.sin((tick + o.x)/10) * 0.5;
+    }
+
+    // Çarpışma Kontrolü (Aynı kaldı)
+    if(Math.hypot(o.x - P.x, o.y - P.y) < 20 + o.r){ // Hitbox biraz daraltıldı (20) kaçmak kolay olsun
+      badOrbs.splice(i,1); 
+      
+      // Ceza
+      state.xp = Math.max(0, state.xp - 5); 
+      
+      // Ufak bir sarsıntı
+      P.vy = -5; // Hafif aşağı it
+      P.x -= 80;  // Karakteri 80 piksel geriye fırlat
+      
+      log('Hit! -5 XP'); 
+      renderLevels();
+    }
+  }
+}
+
+function checkObstacles(){
+  if(isPaused) return;
+  for(const ob of obstacles){
+    if(Math.abs(ob.x - P.x) < 30 && Math.abs(ob.y - P.y) < 30){
+      state.xp = Math.max(0, state.xp - 2); P.x -= 60; P.vy = -6; log('Engele çarptın! -2 XP');
+    }
+  }
+  
+  // KAPI MANTIĞI
+  const doorX = 3850;
+  // Eğer level 5 değilse kapı kontrolü yap
+  if(state.level < 5 && P.x > doorX - 30) {
+      if(state.level === 4 && state.xp >= state.xpNeeded) {
+          if(P.x > doorX + 10) {
+             enterBossRoom(); // YENİ: Arenaya giriş fonksiyonu
+          }
+      } else {
+          P.x = doorX - 30;
+          if(Math.random()<0.05) {
+              if(state.level < 4) log('The door is locked: You have to be level 4 first.');
+              else log('The door is locked: Fill up your XP Bar.');
+          }
+      }
+  }
+}
+
+let bossActive=false; let bossTimer=0; let bossCountdown=0;
+let bossPreActive = false; // Hazırlık geri sayımı aktif mi?
+let bossPreTimer = 0;      // Hazırlık süresi (3 saniye olacak)
+
+function startBossFight(){
+  // Önce gerçek savaşı başlatmıyoruz
+  bossActive = false; 
+  
+  // Hazırlık aşamasını başlatıyoruz
+  bossPreActive = true;
+  bossPreTimer = 3; // 3 Saniyeden geriye sayacak
+  
+  // Görsel olarak level'i 5 yapıyoruz
+  state.level = 5; 
+  renderLevels();
+  
+  log('Be Careful! red orbs are raining down! (hold tight for 10 seconds)');
+}
+
+function bossTick(dt){
+  if(isPaused) return;
+  
+  // --- AŞAMA 1: HAZIRLIK (3-2-1) ---
+  if(bossPreActive) {
+      bossPreTimer -= dt/60;
+      
+      // Süre bitti mi?
+      if(bossPreTimer <= 0) {
+          bossPreActive = false; // Hazırlık bitti
+          bossActive = true;     // GERÇEK SAVAŞ BAŞLADI
+          bossTimer = 0;
+          bossCountdown = 10;    // 10 Saniye hayatta kalma süresi
+          log('Meteor Raining is on! No way to handle with that?');
+      }
+      return; // Hazırlık bitene kadar aşağıdakileri yapma
+  }
+  
+  // --- AŞAMA 2: METEOR SAVAŞI ---
+  if(!bossActive) return;
+  
+  bossTimer += dt/60;
+  
+  // Meteor yağmuru (Her 10 karede bir)
+  if(tick % 10 === 0) {
+      const spawnX = cameraX + Math.random() * 800;
+      badOrbs.push({
+          x: spawnX, y: -50, r: 14, falling: true, 
+          speed: 4 + Math.random() * 4 
+      });
+  }
+  
+  // Kazanma Kontrolü
+  if(bossTimer > bossCountdown){
+    bossActive=false; 
+    state.bossDefeated=true; 
+    state.unlocked.push(5); 
+    save(); renderLevels(); 
+    showLevelModal(LEVELS[4]); 
+  }
+}
+
+function drawDoor(x) {
+    // Level 5'e geçtiysek kapıyı artık çizme
+    if(state.level >= 5) return;
+
+    const isOpen = (state.level === 4 && state.xp >= state.xpNeeded);
+    const sx = x - cameraX;
+    if (sx < -100 || sx > canvas.width + 100) return;
+
+    const doorW = 60; const doorH = 90; const drawY = 380 - doorH;
+
+    if (isOpen) {
+        if (doorOpenSprite.complete && doorOpenSprite.naturalWidth!==0) {
+            ctx.shadowBlur=20; ctx.shadowColor='#f59e0b';
+            ctx.drawImage(doorOpenSprite, sx, drawY, doorW, doorH); ctx.shadowBlur=0;
+        } else { ctx.fillStyle='gold'; ctx.fillRect(sx, drawY, doorW, doorH); }
+    } else {
+        if (doorClosedSprite.complete && doorClosedSprite.naturalWidth!==0) {
+             ctx.drawImage(doorClosedSprite, sx, drawY, doorW, doorH);
+        } else { ctx.fillStyle='gray'; ctx.fillRect(sx, drawY, doorW, doorH); }
+    }
+}
+
+function draw(){
+  requestAnimationFrame(draw);
+  tick++;
+  physics(); updateOrbs(); checkObstacles(); bossTick(1); updateBadOrbs();
+
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  
+  // --- GÖKYÜZÜ ---
+  if(state.level === 5 && !state.bossDefeated) {
+      const g = ctx.createLinearGradient(0,0,0,canvas.height); 
+      g.addColorStop(0,'#3f0000'); g.addColorStop(1,'#000000'); 
+      ctx.fillStyle=g; ctx.fillRect(0,0,canvas.width,canvas.height);
+  } else {
+      const g = ctx.createLinearGradient(0,0,0,canvas.height); 
+      g.addColorStop(0,'#021427'); g.addColorStop(1,'#031226'); 
+      ctx.fillStyle=g; ctx.fillRect(0,0,canvas.width,canvas.height);
+  }
+
+  ctx.fillStyle='#05223a'; ctx.fillRect(0,420,canvas.width,60);
+  
+  // Harita Sonu Yazısı
+  if(state.level < 5) {
+      ctx.fillStyle='rgba(255,255,255,0.2)'; 
+      ctx.font='700 20px "Montserrat", sans-serif'; // Montserrat Bold
+      ctx.fillText("/// END OF WORLD ///", 4100-cameraX, 300);
+      drawDoor(3850);
+  }
+
+  // --- NESNELER ---
+  for(const o of orbs){
+    const sx=o.x-cameraX; if(sx>-40&&sx<canvas.width+40){
+        ctx.beginPath();ctx.fillStyle='#f59e0b';ctx.arc(sx,o.y,o.r,0,Math.PI*2);ctx.fill();
+    }
+  }
+  for(const o of badOrbs){
+    const sx=o.x-cameraX; if(sx>-40&&sx<canvas.width+40){
+        ctx.beginPath();ctx.fillStyle='#ef4444';ctx.shadowBlur=15;ctx.shadowColor='red';
+        ctx.arc(sx,o.y,o.r,0,Math.PI*2);ctx.fill(); ctx.shadowBlur=0;ctx.fillStyle='#450a0a';ctx.fillRect(sx-3,o.y-3,6,6);
+    }
+  }
+  for(const ob of obstacles){
+    const sx=ob.x-cameraX; if(sx>-100&&sx<canvas.width+100){
+        ctx.fillStyle='#ef4444';ctx.fillRect(sx-ob.w/2,ob.y-ob.h/2,ob.w,ob.h);
+    }
+  }
+
+  // --- OYUNCU ---
+  const px=P.x-cameraX; const py=P.y;
+  ctx.save(); ctx.translate(px,py);
+  if (playerSprite.complete && playerSprite.naturalWidth !== 0) {
+      const imgW=playerSprite.naturalWidth; const imgH=playerSprite.naturalHeight;
+      const scale=Math.min(P.w/imgW, P.h/imgH);
+      const drawW=imgW*scale; const drawH=imgH*scale;
+      ctx.drawImage(playerSprite, -P.w/2 + (P.w-drawW)/2, -P.h+(P.h-drawH), drawW, drawH);
+  } else { ctx.fillStyle='#eaf4ff'; ctx.fillRect(-P.w/2,-P.h,P.w,P.h); }
+  
+  if(P.dashCooldown > 30) {
+      ctx.globalAlpha=0.4;
+      if (playerSprite.complete) {
+          const imgW=playerSprite.naturalWidth; const imgH=playerSprite.naturalHeight;
+          const scale=Math.min(P.w/imgW, P.h/imgH);
+          ctx.drawImage(playerSprite, -P.w/2+(P.w-imgW*scale)/2 - 20, -P.h+(P.h-imgH*scale), imgW*scale, imgH*scale);
+      } else { ctx.fillRect(-P.w/2-20,-P.h,P.w,P.h); }
+  }
+  ctx.restore();
+
+  // --- HUD (SOL ÜST) ---
+  ctx.fillStyle='rgba(15, 23, 42, 0.8)'; ctx.fillRect(12,12,220,62);
+  // Montserrat Regular
+  ctx.fillStyle='#eaf4ff'; ctx.font='13px "Montserrat", sans-serif'; 
+  ctx.fillText(`Level ${state.level}  •  XP ${state.xp}/${state.xpNeeded}`, 22,36);
+  ctx.fillStyle='#1e293b'; ctx.fillRect(22,44,180,8);
+  const frac = Math.max(0, Math.min(1, state.xp / state.xpNeeded));
+  ctx.fillStyle='#f59e0b'; ctx.fillRect(22,44,180*frac,8);
+
+  // --- 3-2-1 BAŞLANGIÇ GERİ SAYIMI ---
+  if(bossPreActive) {
+      const count = Math.ceil(bossPreTimer);
+      ctx.save(); ctx.textAlign = 'center';
+      ctx.shadowBlur = 20; ctx.shadowColor = 'black';
+      
+      if(count > 0) {
+          ctx.fillStyle = '#f59e0b'; 
+          // Montserrat ExtraBold (900)
+          ctx.font = '900 120px "Montserrat", sans-serif';
+          ctx.fillText(count, canvas.width/2, canvas.height/2);
+          
+          ctx.font = '700 30px "Montserrat", sans-serif';
+          ctx.fillStyle = 'white';
+          ctx.fillText("Get Ready!", canvas.width/2, canvas.height/2 + 60);
+      } else {
+          ctx.fillStyle = '#ef4444'; 
+          ctx.font = '900 120px "Montserrat", sans-serif';
+          ctx.fillText("Runaway!", canvas.width/2, canvas.height/2);
+      }
+      ctx.restore();
+  }
+
+  // --- BOSS HAYATTA KALMA SAYACI ---
+  if(bossActive) {
+      const remaining = Math.max(0, Math.ceil(bossCountdown - bossTimer));
+      ctx.save();
+      ctx.fillStyle = remaining <= 3 ? '#ef4444' : '#ffffff';
+      
+      // Montserrat ExtraBold (900)
+      ctx.font = '900 80px "Montserrat", sans-serif'; 
+      ctx.textAlign = 'center';
+      ctx.shadowBlur = 10; ctx.shadowColor = 'black';
+      
+      ctx.fillText(remaining, canvas.width/2, 120);
+      
+      ctx.font = '700 20px "Montserrat", sans-serif';
+      ctx.fillText("SURVIVE", canvas.width/2, 155);
+      ctx.restore();
+  }
+}
+
+// Loops
+setInterval(()=>{ 
+    // Boss modunda değilsek normal orb spawn et
+    if(!isPaused && state.level < 5 && Math.random()<0.6) spawnOrb(P.x+500+Math.random()*200, 260+Math.random()*120); 
+}, 2000);
+document.getElementById('reset').addEventListener('click', reset);
+setInterval(save, 1500);
+
+const startModal = document.getElementById('startModal');
+const startGameBtn = document.getElementById('startGameBtn');
+startGameBtn.addEventListener('click', () => {
+  startModal.style.display = 'none'; 
+  isPaused = false;
+  
+  // YENİ EKLENEN SATIR: Müziği Başlat
+  // Tarayıcı kuralı gereği, ancak kullanıcı tıkladığında başlatabiliriz.
+  bgMusic.play().catch(e => console.log("Müzik başlatılamadı:", e));
+
+  if(state.xp === 0 && state.level === 1){
+    log('Journey Begins, Good Luck!');
+  }
+});
+function fireConfetti() {
+  const colors=['#f59e0b','#ef4444','#3b82f6','#fff'];
+  for(let i=0;i<60;i++){
+    const c=document.createElement('div');c.className='confetti';
+    c.style.left=Math.random()*100+'vw';
+    c.style.backgroundColor=colors[Math.floor(Math.random()*colors.length)];
+    c.style.animation=`fall ${Math.random()*2+1}s linear forwards`;
+    document.body.appendChild(c);
+  }
+}
+
+// --- MÜZİK KONTROLÜ ---
+const musicBtn = document.getElementById('toggleMusic');
+let isMusicPlaying = true;
+
+musicBtn.addEventListener('click', () => {
+    if(isMusicPlaying) {
+        bgMusic.pause();
+        musicBtn.textContent = '🔇'; // Sessiz ikon
+        isMusicPlaying = false;
+    } else {
+        bgMusic.play();
+        musicBtn.textContent = '🎵'; // Müzik ikon
+        isMusicPlaying = true;
+    }
+    // Buton odağını kaldır (Yoksa Space'e basınca tekrar tetiklenir)
+    musicBtn.blur(); 
+});
+
+init();
+</script>
+</body>
+</html>
