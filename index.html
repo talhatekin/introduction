@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1" />
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
 <title>Level Up — Talha's Interactive CV</title>
 <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700;900&display=swap" rel="stylesheet">
 <style>
@@ -205,6 +205,98 @@
   border-color: #ef4444; /* Üzerine gelince kırmızılaşsın */
   color: #ef4444 !important;
 }
+
+/* --- MOBİL KONTROLLER STİLİ --- */
+/* --- YENİ MOBİL DÜZEN (KONSO STİLİ) --- */
+
+/* 1. Masaüstünde Tuşları Gizle */
+#mobile-controls { display: none; }
+
+/* 2. Sadece Mobilde Devreye Gir */
+@media (max-width: 900px) {
+  
+  /* Ana sahneyi dikey kutuya çevir */
+  .stage {
+    display: flex !important;
+    flex-direction: column !important;
+    height: 85vh !important; /* Ekranın %85'ini kaplasın */
+    background: #000 !important;
+    padding: 0 !important;
+    border: 2px solid #333;
+  }
+
+  /* Canvas Alanı (Üst Kısım) */
+  .canvas-wrapper {
+    flex: 1; /* Kalan tüm boşluğu kapla */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #000;
+    overflow: hidden;
+    width: 100%;
+  }
+
+  canvas {
+    width: 100% !important;
+    height: 100% !important;
+    object-fit: contain; /* Görüntüyü bozmadan sığdır */
+  }
+
+  /* Kontrol Paneli (Alt Kısım) */
+  #mobile-controls {
+    display: flex;
+    height: 160px; /* Sabit yükseklik */
+    background: #1a1a1a; /* Koyu gri zemin */
+    border-top: 4px solid #f59e0b; /* Turuncu çizgi */
+    justify-content: space-between;
+    align-items: center;
+    padding: 0 30px;
+    box-shadow: inset 0 10px 20px rgba(0,0,0,0.5);
+  }
+
+  /* Marka Yazısı (Süs) */
+  .brand {
+    color: #333;
+    font-weight: 900;
+    font-size: 14px;
+    letter-spacing: 2px;
+    font-family: sans-serif;
+  }
+
+  /* Buton Grupları */
+  .control-group { display: flex; gap: 20px; }
+
+  /* Tuş Tasarımları (Gameboy Tuşları Gibi) */
+  .touch-btn {
+    width: 60px; height: 60px;
+    background: #222;
+    border-radius: 50%;
+    box-shadow: 0 4px 0 #000, 0 5px 10px rgba(0,0,0,0.5); /* 3D Efekt */
+    color: #555;
+    font-size: 24px;
+    display: flex; align-items: center; justify-content: center;
+    user-select: none;
+    cursor: pointer;
+  }
+  
+  /* Basınca Çökme Efekti */
+  .touch-btn:active {
+    transform: translateY(4px);
+    box-shadow: 0 0 0 #000;
+    background: #333;
+    color: #f59e0b;
+  }
+
+  /* Sağdaki Tuşlar (Kırmızı) */
+  .touch-btn.big {
+    background: yellowgreen; /* Koyu Kırmızı */
+    color: white;
+    font-weight: bold;
+    font-size: 16px;
+  }
+  .touch-btn.big:active { background: wheat; }
+}
+
 </style>
 </head>
 <body>
@@ -235,6 +327,16 @@
     <div class="game-area">
       <div class="stage">
        <canvas id="game" width="960" height="480"></canvas>
+       <div id="mobile-controls">
+  <div class="control-group">
+    <div class="touch-btn" id="btnLeft">←</div>
+    <div class="touch-btn" id="btnRight">→</div>
+  </div>
+  <div class="control-group">
+    <div class="touch-btn big" id="btnDash">Z</div>
+    <div class="touch-btn big" id="btnJump">JUMP</div>
+  </div>
+</div>
       </div>
 
       <aside class="sidebar">
@@ -480,6 +582,51 @@ function init(){
 // Controls
 window.addEventListener('keydown',(e)=>{ if(isPaused)return; keys[e.key.toLowerCase()]=true; if(e.key===' ')e.preventDefault(); });
 window.addEventListener('keyup',(e)=>{ keys[e.key.toLowerCase()]=false; });
+// --- MOBİL DOKUNMATİK AYARLARI ---
+// --- GÜÇLENDİRİLMİŞ MOBİL KONTROLLER ---
+const setupTouch = (id, key) => {
+  const el = document.getElementById(id);
+  if(!el) {
+      console.log("Buton bulunamadı:", id); // Hata varsa konsolda görelim
+      return;
+  }
+
+  // 1. Dokunmatik Ekranlar İçin (Telefon)
+  el.addEventListener('touchstart', (e)=>{ 
+      e.preventDefault(); // Sayfanın kaymasını engelle
+      keys[key] = true;   // Tuşa basıldı
+  });
+  el.addEventListener('touchend', (e)=>{ 
+      e.preventDefault(); 
+      keys[key] = false;  // Tuş bırakıldı
+  });
+
+  // 2. Mouse Tıklaması İçin (Bilgisayarda test etmek için)
+  el.addEventListener('mousedown', (e)=>{ 
+      e.preventDefault(); 
+      keys[key] = true; 
+  });
+  el.addEventListener('mouseup', (e)=>{ 
+      e.preventDefault(); 
+      keys[key] = false; 
+  });
+  // Mouse butondan dışarı kayarsa da basmayı bıraksın
+  el.addEventListener('mouseleave', (e)=>{ 
+      keys[key] = false; 
+  });
+};
+
+// Tuş Tanımlamaları (Küçük harf olmasına dikkat!)
+setupTouch('btnLeft', 'arrowleft');
+setupTouch('btnRight', 'arrowright');
+setupTouch('btnJump', ' '); // Space tuşu için boşluk karakteri
+setupTouch('btnDash', 'z');
+
+// Tuşları eşleştiriyoruz
+setupTouch('btnLeft', 'arrowleft');
+setupTouch('btnRight', 'arrowright');
+setupTouch('btnJump', ' ');
+setupTouch('btnDash', 'z');
 
 // --- YENİ BOSS ARENA GİRİŞİ ---
 function enterBossRoom() {
@@ -541,8 +688,8 @@ function updateOrbs(){
       orbs.splice(i,1); // Topu yok et
       
       // --- DEĞİŞİKLİK BURADA ---
-      state.xp += 4; // Eskiden 3'tü, şimdi 15 oldu (Hızlı Level Up)
-      log('Excellent! +4 XP.');
+      state.xp += 3; // Eskiden 3'tü, şimdi 15 oldu (Hızlı Level Up)
+      log('Excellent! +5 XP.');
       
       tryLevelUp();
     }
